@@ -234,24 +234,25 @@ inline void serialMergeIntrinsic( vec_t* A, int32_t A_length,
 	uint32_t bi = 0;
 	uint32_t ci = 0;
 
-	__m128i mione = _mm_cvtsi32_si128(1);
+	__m128i mione = _mm_cvtsi32_si128(1); //copies 32bit integer 1 to mione -> basically makes mione a 128bit 1
 	__m128i miand, miandnot;
-	__m128i miAi = _mm_cvtsi32_si128(0);//ai);
-	__m128i miBi = _mm_cvtsi32_si128(0);//bi);
+	__m128i miAi = _mm_cvtsi32_si128(0); //ai);
+	__m128i miBi = _mm_cvtsi32_si128(0); //bi);
 
-	while(ai < A_length && bi < B_length) {
-		__m128i miAelem = _mm_cvtsi32_si128(A[ai]);
-		__m128i miBelem = _mm_cvtsi32_si128(B[bi]);
-		__m128i micmp   = _mm_cmplt_epi32(miAelem,miBelem);
-		miand           = _mm_and_si128(micmp,mione);
-		miandnot        = _mm_andnot_si128(micmp,mione);
-		miAelem         = _mm_and_si128(micmp,miAelem);
-		miBelem         = _mm_andnot_si128(micmp,miBelem);
-		miAi            = _mm_add_epi32(miAi,miand);
-		miBi            = _mm_add_epi32(miBi,miandnot);
-		C[ci++]         = _mm_cvtsi128_si32(_mm_add_epi32(miAelem,miBelem));
-		ai              = _mm_cvtsi128_si32(miAi);
-		bi              = _mm_cvtsi128_si32(miBi);
+	// consider the two cases when micmp evaluates to 0xFFFFFFFF (A[ai] < B[bi]) and when it evaluates to 0 (A[ai] > B[bi]). Correspondingly, either A[ai] gets copied or B[bi] gets copied.
+  while(ai < A_length && bi < B_length) {
+		__m128i miAelem = _mm_cvtsi32_si128(A[ai]); //128bit A[ai]
+		__m128i miBelem = _mm_cvtsi32_si128(B[bi]); //128bit B[bi]
+		__m128i micmp   = _mm_cmplt_epi32(miAelem,miBelem); //checks if A[ai] < B[bi]? 0xFFFFFFFF:0
+		miand           = _mm_and_si128(micmp,mione); //micmp & mione - result is either 1 or 0
+		miandnot        = _mm_andnot_si128(micmp,mione); //NOT(micmp) & mione - result is either 0 or 1
+		miAelem         = _mm_and_si128(micmp,miAelem); //micmp & miAelem - A[ai] or 0
+		miBelem         = _mm_andnot_si128(micmp,miBelem); //NOT(micmp) & miBelem - 0 or B[bi]
+		miAi            = _mm_add_epi32(miAi,miand); //miAi + miand
+		miBi            = _mm_add_epi32(miBi,miandnot); //miBi + miandnot
+		C[ci++]         = _mm_cvtsi128_si32(_mm_add_epi32(miAelem,miBelem)); //copy miAelem + miBelem into C[ci] and increment ci
+		ai              = _mm_cvtsi128_si32(miAi); //copy miAi into ai
+		bi              = _mm_cvtsi128_si32(miBi); //copy miBi into bi
 	}
 
 	while(ai < A_length) {
