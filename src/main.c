@@ -227,6 +227,50 @@ void bitonicMergeReal(vec_t* A, uint32_t A_length,
  } 
 }
 
+inline void serialMergeIntrinsicAVX( vec_t* A, int32_t A_length,
+                                     vec_t* B, int32_t B_length,
+                                     vec_t* C, uint32_t C_length) {
+  uint32_t ai = 0;
+  uint32_t bi = 0;
+  uint32_t ci = 0;
+
+  __m256i mione = _mm256_set_epi32(0, 0, 0, 0, 0, 0, 0, 1); //256bit 1
+  __m256i miand, miandnot;
+  __m256i miAi = _mm256_set_epi32(0, 0, 0, 0, 0, 0, 0, 0); //ai
+  __m256i miBi = _mm256_set_epi32(0, 0, 0, 0, 0, 0, 0, 0); //bi
+
+  while (ai < A_length && bi < B_length) {
+    __m256i miAelem = _mm256_set_epi32(0, 0, 0, 0, 0, 0, 0, A[ai]); //256bit A[ai]
+    __m256i miBelem = _mm256_set_epi32(0, 0, 0, 0, 0, 0, 0, B[bi]); //256bit B[bi]
+    __m256i micmp   = _mm256_cmpgt_epi32(miBelem, miAelem); //checks if B[bi] > A[ai]? 0xFFFFFFFF:0
+    miand           = _mm256_and_si256(micmp, mione); //micmp & mione - result is either 1 or 0
+    miandnot        = _mm256_andnot_si256(micmp, mione); //NOT(micmp) & mione - result is either 0 or 1
+    miAelem         = _mm256_and_si256(micmp, miAelem); //micmp & miAelem - A[ai] or 0
+    miBelem         = _mm256_andnot_si256(micmp, miBelem); //NOT(micmp) & miBelem - 0 or B[bi]
+    miAi            = _mm256_add_epi32(miAi, miand); //miAi + miand
+    miBi            = _mm256_add_epi32(miBi, miandnot); //miBi + miandnot
+    C[ci++]         = _mm256_extract_epi32(_mm256_add_epi32(miAelem, miBelem), 0); //copy miAelem + miBelem into C[ci] and increment ci
+    ai              = _mm256_extract_epi32(miAi); //copy miAi into ai
+    bi              = _mm256_extract_epi32(miBi); //copy miBi into bi
+  }
+
+  while(ai < A_length) {
+    C[ci++] = A[ai++];
+  }
+  while(bi < B_length) {
+    C[ci++] = B[bi++];
+  }
+
+  for (int i = 0; i < C_length; i++) {
+      if(C[i] != CSorted[i])
+      {
+        printf("\n %d,%d,%d \n", i, C[i], CSorted[i]);
+        return;
+      }
+    }
+
+}
+
 inline void serialMergeIntrinsic( vec_t* A, int32_t A_length,
                                   vec_t* B, int32_t B_length,
                                   vec_t* C, uint32_t C_length){
