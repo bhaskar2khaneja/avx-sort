@@ -250,8 +250,8 @@ inline void serialMergeIntrinsicAVX( vec_t* A, int32_t A_length,
     miAi            = _mm256_add_epi32(miAi, miand); //miAi + miand
     miBi            = _mm256_add_epi32(miBi, miandnot); //miBi + miandnot
     C[ci++]         = _mm256_extract_epi32(_mm256_add_epi32(miAelem, miBelem), 0); //copy miAelem + miBelem into C[ci] and increment ci
-    ai              = _mm256_extract_epi32(miAi); //copy miAi into ai
-    bi              = _mm256_extract_epi32(miBi); //copy miBi into bi
+    ai              = _mm256_extract_epi32(miAi, 0); //copy miAi into ai
+    bi              = _mm256_extract_epi32(miBi, 0); //copy miBi into bi
   }
 
   while(ai < A_length) {
@@ -268,6 +268,7 @@ inline void serialMergeIntrinsicAVX( vec_t* A, int32_t A_length,
         return;
       }
     }
+    printf("\n %s", "Success!");
 
 }
 
@@ -455,6 +456,7 @@ void tester(
   float serialNoBranch   = 0.0;
   float bitonicReal = 0.0;
   float intrinsic = 0.0;
+  float intrinsicAVX = 0.0;
   float mergenet = 0.0;
   float avx2 = 0.0;
 
@@ -480,6 +482,11 @@ void tester(
     tic_reset();
     serialMergeIntrinsic(*A, A_length, *B, B_length, *C, Ct_length);
     intrinsic+=tic_sincelast();	
+    for(int ci=0; ci<C_length; ci++) {Cptr[ci]=0;}
+
+    tic_reset();
+    serialMergeIntrinsicAVX(*A, A_length, *B, B_length, *C, Ct_length);
+    intrinsicAVX+=tic_sincelast(); 
     for(int ci=0; ci<C_length; ci++) {Cptr[ci]=0;}
 
     tic_reset();
@@ -510,6 +517,7 @@ void tester(
   printf(",%.10f", 1e8*(serialNoBranch / (float)(RUNS*Ct_length)));
   printf(",%.10f", 1e8*(bitonicReal / (float)(RUNS*Ct_length)));
   printf(",%.10f", 1e8*(intrinsic / (float)(RUNS*Ct_length)));
+  printf(",%.10f", 1e8*(intrinsicAVX / (float)(RUNS*Ct_length)));
   printf(",%.10f", 1e8*(mergenet / (float)(RUNS*Ct_length)));
 
 
